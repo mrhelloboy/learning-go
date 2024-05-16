@@ -220,3 +220,71 @@ false
 你可以在 [The Go Playground]() 上或者在[第 8 章的代码仓库]()的 _sample_code/comparable_stack_ 目录中尝试使用这个更新后的栈。
 
 稍后，你将了解如何创建一个泛型二叉树。在此之前，我将先介绍一些额外的概念：泛型函数（generic functions）、泛型如何与接口配合使用，以及类型术语（terms）。
+
+## 泛型函数：抽象算法
+
+如我先前所暗示的，你也可以编写泛型函数。我之前提到过，没有泛型，使得很难写出适用于所有类型的 map、reduce 和 filter。而泛型会让这一切变得简单。以下是来自类型参数提案的实现示例：
+
+```go
+// Map turns a []T1 to a []T2 using a mapping function.
+// This function has two type parameters, T1 and T2.
+// This works with slices of any type.
+func Map[T1, T2 any](s []T1, f func(T1) T2) []T2 {
+    r := make([]T2, len(s))
+    for i, v := range s {
+        r[i] = f(v)
+    }
+    return r
+}
+
+// Reduce reduces a []T1 to a single value using a reduction function.
+func Reduce[T1, T2 any](s []T1, initializer T2, f func(T2, T1) T2) T2 {
+    r := initializer
+    for _, v := range s {
+        r = f(r, v)
+    }
+    return r
+}
+
+// Filter filters values from a slice using a filter function.
+// It returns a new slice with only the elements of s
+// for which f returned true.
+func Filter[T any](s []T, f func(T) bool) []T {
+    var r []T
+    for _, v := range s {
+        if f(v) {
+            r = append(r, v)
+        }
+    }
+    return r
+}
+```
+
+在函数中，类型参数放在函数名之后、变量参数之前。其中 Map 和 Reduce 有两个任意类型的类型参数，而 Filter 有一个。当你运行以下代码时：
+
+```go
+words := []string{"One", "Potato", "Two", "Potato"}
+filtered := Filter(words, func(s string) bool {
+    return s != "Potato"
+})
+fmt.Println(filtered)
+lengths := Map(filtered, func(s string) int {
+    return len(s)
+})
+fmt.Println(lengths)
+sum := Reduce(lengths, 0, func(acc int, val int) int {
+    return acc + val
+})
+fmt.Println(sum)
+
+```
+
+你将得到如下输出：
+
+```bash
+[One Two]
+[3 3]
+6
+```
+
+可在 [Go Playground](https://go.dev/play/p/MYYW3e7cpkX) 或 [第 8 章代码仓库](https://github.com/learning-go-book-2e/ch08) 的 _sample_code/map_filter_reduce_ 目录中自行尝试。
