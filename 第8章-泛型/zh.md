@@ -221,7 +221,7 @@ false
 
 稍后，你将了解如何创建一个泛型二叉树。在此之前，我将先介绍一些额外的概念：泛型函数（generic functions）、泛型如何与接口配合使用，以及类型术语（terms）。
 
-## 泛型函数：抽象算法
+## 泛型函数：算法的抽象化
 
 如我先前所暗示的，你也可以编写泛型函数。我之前提到过，没有泛型，使得很难写出适用于所有类型的 map、reduce 和 filter。而泛型会让这一切变得简单。以下是来自类型参数提案的实现示例：
 
@@ -287,4 +287,90 @@ fmt.Println(sum)
 6
 ```
 
-可在 [Go Playground](https://go.dev/play/p/MYYW3e7cpkX) 或 [第 8 章代码仓库](https://github.com/learning-go-book-2e/ch08) 的 _sample_code/map_filter_reduce_ 目录中自行尝试。
+可在 [Go Playground](https://go.dev/play/p/MYYW3e7cpkX) 或 [第 8 章代码仓库](https://github.com/learning-go-book-2e/ch08) 的 _sample_code/map_filter_reduce_ 目录中自行体验。
+
+## 泛型与接口
+
+不仅可以使用 any 和 comparable 作为类型约束（type constraint），任何接口都可以用作类型约束。例如，假设你想创建一个类型，用于存储任意两个相同类型的值，前提是该类型实现了 fmt.Stringer 接口。泛型在编译时就能确保这种类型约束：
+
+```go
+type Pair[T fmt.Stringer] struct {
+    Val1 T
+    Val2 T
+}
+```
+
+你还可以创建包含类型参数的接口。例如，下面的一个接口，其中包含一个方法，用于与指定类型的值进行比较并返回一个 float64 值，并且它还内嵌了 fmt.Stringer 接口：
+
+```go
+type Differ[T any] interface {
+    fmt.Stringer
+    Diff(T) float64
+}
+```
+
+接下来，利用这两个类型来创建一个比较函数。该函数接收两个 Pair 实例，它们的字段类型均为 Differ，并返回差异较小的那个 Pair 实例
+
+```go
+func FindCloser[T Differ[T]](pair1, pair2 Pair[T]) Pair[T] {
+    d1 := pair1.Val1.Diff(pair1.Val2)
+    d2 := pair2.Val1.Diff(pair2.Val2)
+    if d1 < d2 {
+        return pair1
+    }
+    return pair2
+}
+```
+
+注意，FindCloser 接收的 Pair 实例，其字段需满足 Differ 接口。Pair 要求其字段都是相同的类型，且此类型实现 fmt.Stringer 接口；而这个函数则更加严格。如果 Pair 实例的字段不满足 Differ 接口要求，编译器会阻止你将其用在 FindCloser 函数上。
+
+现在定义几个满足 Differ 接口的类型：
+
+```go
+type Point2D struct {
+    X, Y int
+}
+
+func (p2 Point2D) String() string {
+    return fmt.Sprintf("{%d,%d}", p2.X, p2.Y)
+}
+
+func (p2 Point2D) Diff(from Point2D) float64 {
+    x := p2.X - from.X
+    y := p2.Y - from.Y
+    return math.Sqrt(float64(x*x) + float64(y*y))
+}
+
+type Point3D struct {
+    X, Y, Z int
+}
+
+func (p3 Point3D) String() string {
+    return fmt.Sprintf("{%d,%d,%d}", p3.X, p3.Y, p3.Z)
+}
+
+func (p3 Point3D) Diff(from Point3D) float64 {
+    x := p3.X - from.X
+    y := p3.Y - from.Y
+    z := p3.Z - from.Z
+    return math.Sqrt(float64(x*x) + float64(y*y) + float64(z*z))
+}
+```
+
+下面是使用这段代码的样子：
+
+```go
+func main() {
+    pair2Da := Pair[Point2D]{Point2D{1, 1}, Point2D{5, 5}}
+    pair2Db := Pair[Point2D]{Point2D{10, 10}, Point2D{15, 5}}
+    closer := FindCloser(pair2Da, pair2Db)
+    fmt.Println(closer)
+
+    pair3Da := Pair[Point3D]{Point3D{1, 1, 10}, Point3D{5, 5, 0}}
+    pair3Db := Pair[Point3D]{Point3D{10, 10, 10}, Point3D{11, 5, 0}}
+    closer2 := FindCloser(pair3Da, pair3Db)
+    fmt.Println(closer2)
+}
+```
+
+你可以在 [Go Playground](https://go.dev/play/p/1_tlI22De7r) 上运行这段代码，或者在[第八章代码仓库](https://github.com/learning-go-book-2e/ch08/tree/main)的 _sample_code/generic_interface_ 目录中执行相关代码。
