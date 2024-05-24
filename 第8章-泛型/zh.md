@@ -374,3 +374,115 @@ func main() {
 ```
 
 你可以在 [Go Playground](https://go.dev/play/p/1_tlI22De7r) 上运行这段代码，或者在[第八章代码仓库](https://github.com/learning-go-book-2e/ch08/tree/main)的 _sample_code/generic_interface_ 目录中执行相关代码。
+
+## 使用类型术语来指定运算符
+
+还有一件事需要用泛型表示：运算符。divAndRemainder 函数在处理 int 类型时表现得很好，但是如果你想使用其他整数类型，就需要进行类型转换，而且 uint 能够表示比 int 更大的数值。如果你想写一个 divAndRemainder 的泛型版本，你需要一种方式来指明你可以使用 / 和 % 运算符。Go 泛型通过接口中的类型元素（type element）来实现这一点，它由一个或多个类型术语（type terms）组成：
+
+```go
+type Integer interface {
+    int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr
+}
+```
+
+在第 162 页的“嵌入和接口”中，你学习了接口嵌入，用来表明一个包含接口的方法集包含了被嵌入接口的全部方法。类型元素指定了哪些类型能赋值给类型参数，以及支持哪些运算符。里面列出了具体类型，并用 | 进行分隔。对所有列出的类型都有效的运算符，才是允许使用的。取模（%）运算符只对整数有效，所以我们列出了所有整数类型。（你可以省略 byte 和 rune，因为它们分别是 uint8 和 int32 的类型别名。）
+
+请注意，带有类型元素的接口只能作为类型约束时才有效。将其用作变量、字段、返回值或参数的类型，会在编译时引发错误。
+
+现在你可以写 divAndRemainder 的泛型版本了，并使用内置的 uint 类型（或 Integer 中列出的其他类型）：
+
+```go
+func divAndRemainder[T Integer](num, denom T) (T, T, error) {
+    if denom == 0 {
+        return 0, 0, errors.New("cannot divide by zero")
+    }
+    return num / denom, num % denom, nil
+}
+
+func main() {
+    var a uint = 18_446_744_073_709_551_615
+    var b uint = 9_223_372_036_854_775_808
+    fmt.Println(divAndRemainder(a, b))
+}
+```
+
+默认情况下，类型术语必须严格一致。若尝试对自定义类型（其底层类型为 Integer 中所列类型之一）使用 divAndRemainder 函数，会引发错误。比如这段代码：
+
+```go
+type MyInt int
+var myA MyInt = 10
+var myB MyInt = 20
+fmt.Println(divAndRemainder(myA, myB))
+```
+
+会产生以下错误：
+
+```bash
+MyInt does not satisfy Integer (possibly missing ~ for int in Integer)
+```
+
+错误信息给出了如何解决这个问题的提示。要使类型术语对所有底层类型为该术语的类型有效，可在其前加上 ~。这将 Integer 的定义改为：
+
+```go
+type Integer interface {
+    ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+}
+```
+
+你可以在 [Go Playground](https://go.dev/play/p/5rD41rZbPw0) 或者[第 8 章代码仓库](https://github.com/learning-go-book-2e/ch08)的 _sample_code/type_terms_ 目录中查看 divAndRemainder 函数的泛型版本。
+
+类型术语的加入让你能够定义一种类型，从而写出泛型比较函数：
+
+```go
+type Ordered interface {
+    ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~float32 | ~float64 | ~string
+}
+```
+
+Ordered 接口列出了所有支持 ==、!=、<、>、<= 和 >= 运算符的类型。指定变量为可排序类型，会非常实用，因此 Go 1.21 版本新增了 cmp 包，其定义这个 Ordered 接口。该包还定义了两个比较函数：Compare 函数根据第一个参数是小于、等于还是大于第二个参数，分别返回 -1、0 或 1；而 Less 函数在第一个参数小于第二个参数时返回 true。
+
+在用作类型参数的接口中同时包含类型元素和方法元素是合法的。例如，你可以指定一个类型必须有 int 的底层类型和 String() string 方法：
+
+```go
+type PrintableInt interface {
+    ~int
+    String() string
+}
+```
+
+请注意，Go 允许你声明一个实际上无法实例化的类型参数接口。如果 PrintableInt 用的是 int 而不是 ~int，就没有类型能够匹配它，因为 int 没有方法。这似乎不妥，但编译器会及时纠正。如果你声明一个带有不合理类型参数的类型或函数，任何尝试使用它的操作都会导致编译错误。假设你声明了这些类型：
+
+```go
+type ImpossiblePrintableInt interface {
+    int
+    String() string
+}
+
+type ImpossibleStruct[T ImpossiblePrintableInt] struct {
+    val T
+}
+
+type MyInt int
+
+func (mi MyInt) String() string {
+    return fmt.Sprint(mi)
+}
+```
+
+尽管你无法实例化 ImpossibleStruct，但编译器对这些声明并不会报错。然而，一旦你尝试使用 ImpossibleStruct，编译器就会报错。如下代码：
+
+```go
+s := ImpossibleStruct[int]{10}
+s2 := ImpossibleStruct[MyInt]{10}
+```
+
+会产生如下编译时错误：
+
+```bash
+int does not implement ImpossiblePrintableInt (missing String method)
+MyInt does not implement ImpossiblePrintableInt (possibly missing ~ for int in constraint ImpossiblePrintableInt)
+```
+
+可以在 [Go Playground](https://go.dev/play/p/MRSprnfhyeT) 或 [第 8 章代码仓库](https://github.com/learning-go-book-2e/ch08)中的 _sample_code/impossible_ 目录下试一试。
+
+除了内置的基本类型，类型术语还可以是 slice、map、数组、channel、结构体甚至是函数。当你想确保一个类型参数具有特定的底层类型和一个或多个方法时，这些类型术语是最有用的。
