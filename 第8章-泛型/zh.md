@@ -486,3 +486,25 @@ MyInt does not implement ImpossiblePrintableInt (possibly missing ~ for int in c
 可以在 [Go Playground](https://go.dev/play/p/MRSprnfhyeT) 或 [第 8 章代码仓库](https://github.com/learning-go-book-2e/ch08)中的 _sample_code/impossible_ 目录下试一试。
 
 除了内置的基本类型，类型术语还可以是 slice、map、数组、channel、结构体甚至是函数。当你想确保一个类型参数具有特定的底层类型和一个或多个方法时，这些类型术语是最有用的。
+
+## 类型推断与泛型
+
+正如 Go 在使用 := 操作符时支持类型推断（type inference）一样，Go 在调用泛型函数时也支持类型推断，从而简化调用过程。你可以在前面对 Map、Filter 和 Reduce 的调用中看到这一点。在某些情况下，类型推断会不起作用（例如，当类型参数仅作为返回值使用时）。在这种情况下，就必须指定所有的类型参数。这里有一段有点蠢的代码，示范了类型推断不起作用的情况：
+
+```go
+type Integer interface {
+    int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64
+}
+
+func Convert[T1, T2 Integer](in T1) T2 {
+    return T2(in)
+}
+
+func main() {
+    var a int = 10
+    b := Convert[int, int64](a) // can't infer the return type
+    fmt.Println(b)
+}
+```
+
+可以在 [Go Playground](https://go.dev/play/p/bDffkpsewcj) 上试一下，或在[第 8 章的仓库](https://github.com/learning-go-book-2e/ch08)中的 _sample_code/type_inference_ 目录中找到相应示例。
