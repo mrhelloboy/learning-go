@@ -375,9 +375,9 @@ func main() {
 
 你可以在 [Go Playground](https://go.dev/play/p/1_tlI22De7r) 上运行这段代码，或者在[第八章代码仓库](https://github.com/learning-go-book-2e/ch08/tree/main)的 _sample_code/generic_interface_ 目录中执行相关代码。
 
-## 使用类型术语来指定运算符
+## 使用类型项来指定运算符
 
-还有一件事需要用泛型表示：运算符。divAndRemainder 函数在处理 int 类型时表现得很好，但是如果你想使用其他整数类型，就需要进行类型转换，而且 uint 能够表示比 int 更大的数值。如果你想写一个 divAndRemainder 的泛型版本，你需要一种方式来指明你可以使用 / 和 % 运算符。Go 泛型通过接口中的类型元素（type element）来实现这一点，它由一个或多个类型术语（type terms）组成：
+还有一件事需要用泛型表示：运算符。divAndRemainder 函数在处理 int 类型时表现得很好，但是如果你想使用其他整数类型，就需要进行类型转换，而且 uint 能够表示比 int 更大的数值。如果你想写一个 divAndRemainder 的泛型版本，你需要一种方式来指明你可以使用 / 和 % 运算符。Go 泛型通过接口中的类型元素（type element）来实现这一点，它由一个或多个类型项（type terms）组成：
 
 ```go
 type Integer interface {
@@ -406,7 +406,7 @@ func main() {
 }
 ```
 
-默认情况下，类型术语必须严格一致。若尝试对自定义类型（其底层类型为 Integer 中所列类型之一）使用 divAndRemainder 函数，会引发错误。比如这段代码：
+默认情况下，必须严格匹配类型项。如果你尝试给 divAndRemainder 函数传入一个自定义的类型，该类型的底层类型是 Integer 列表中的一种，也会引发错误。比如这段代码：
 
 ```go
 type MyInt int
@@ -421,7 +421,7 @@ fmt.Println(divAndRemainder(myA, myB))
 MyInt does not satisfy Integer (possibly missing ~ for int in Integer)
 ```
 
-错误信息给出了如何解决这个问题的提示。要使类型术语对所有底层类型为该术语的类型有效，可在其前加上 ~。这将 Integer 的定义改为：
+错误信息给出了如何解决这个问题的提示。如果你希望某个类型项对以该类型项作为底层类型的任意类型都有效，可在其前加上 ~。这样 Integer 的定义将改为：
 
 ```go
 type Integer interface {
@@ -431,7 +431,7 @@ type Integer interface {
 
 你可以在 [Go Playground](https://go.dev/play/p/5rD41rZbPw0) 或者[第 8 章代码仓库](https://github.com/learning-go-book-2e/ch08)的 _sample_code/type_terms_ 目录中查看 divAndRemainder 函数的泛型版本。
 
-类型术语的加入让你能够定义一种类型，从而写出泛型比较函数：
+通过添加类型项，你就能定义一种类型来实现泛型比较函数
 
 ```go
 type Ordered interface {
@@ -485,7 +485,7 @@ MyInt does not implement ImpossiblePrintableInt (possibly missing ~ for int in c
 
 可以在 [Go Playground](https://go.dev/play/p/MRSprnfhyeT) 或 [第 8 章代码仓库](https://github.com/learning-go-book-2e/ch08)中的 _sample_code/impossible_ 目录下试一试。
 
-除了内置的基本类型，类型术语还可以是 slice、map、数组、channel、结构体甚至是函数。当你想确保一个类型参数具有特定的底层类型和一个或多个方法时，这些类型术语是最有用的。
+除了内置的基本类型外，类型项还可以是 slice、map、数组、channel、结构体，甚至是函数。当你想确保类型参数具有特定的底层类型以及一个或多个方法时，这些类型项尤其有用。
 
 ## 类型推断与泛型
 
