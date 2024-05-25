@@ -508,3 +508,23 @@ func main() {
 ```
 
 可以在 [Go Playground](https://go.dev/play/p/bDffkpsewcj) 上试一下，或在[第 8 章的仓库](https://github.com/learning-go-book-2e/ch08)中的 _sample_code/type_inference_ 目录中找到相应示例。
+
+## 类型元素对常量的限制
+
+类型元素还指定了哪些常量可以赋值给泛型类型的变量。跟运算符一样，这些常量需要对类型元素中的所有类型项都有效。在 Ordered 列出的每种类型中，均不存在可赋值的常量，所以你不能将一个常量赋值给该泛型类型的变量。如果你使用 Integer 接口，下面的代码将无法编译，因为你不能将值 1,000 赋值给一个 8 位整数：
+
+```go
+// INVALID!
+func PlusOneThousand[T Integer](in T) T {
+    return in + 1_000
+}
+```
+
+然而，以下代码是有效的：
+
+```go
+// VALID
+func PlusOneHundred[T Integer](in T) T {
+    return in + 100
+}
+```
