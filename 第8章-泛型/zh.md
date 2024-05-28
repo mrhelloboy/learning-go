@@ -744,3 +744,65 @@ Comparer(a4, b4) // compiles, panics at runtime
 你可以在 [Go Playground](https://go.dev/play/p/eEWZ2IuF47i) 或 [第八章代码仓库](https://github.com/learning-go-book-2e/ch08)中的 _sample_code/more_comparable_ 目录下尝试这些代码。
 
 若想了解更多关于可比较类型与泛型如何交互的技术细节，以及为何做出这样的设计决策，请阅读 Go 团队的 Robert Griesemer 的博客文章 [“All Your Comparable Types”](https://go.dev/blog/comparable)。
+
+## 未包含的特性
+
+Go 坚持其小巧、专注的特性，因而在其泛型实现中未包含其他语言泛型所具备的多项特性。本节将概述 Go 泛型初始实现中未包含的一些特性。
+
+尽管你可以构建一个同时适用于自定义类型和内置类型的通用树，但像 Python、Ruby 和 C++ 等语言则以不同的方式解决这个问题。它们包含了运算符重载，允许用户自定义类型为运算符指定实现。Go 不打算加入此特性。因此，这意味着你无法使用 range 遍历自定义的容器类型，或是使用 [] 对它们进行索引操作。
+
+不包含运算符重载是有充分理由的。一方面，Go 的运算符数量相当可观。另一方面，Go 也没有函数或方法重载，因此你需要一种方式为不同类型指定不同的运算符功能。此外，运算符重载可能导致代码难以理解，因为开发人员为了巧妙利用符号，可能会为其赋予不同的含义（例如在 C++ 中，对于某些类型，<< 表示“位左移”，而对于其他类型，则表示“将右侧的值写入左侧的值”）。这些都是 Go 试图避免的可读性问题。
+
+Go 泛型初始实现中，另一个未包含的实用特性是方法上的额外类型参数。回顾 Map/Reduce/Filter 函数，你或许认为将其作为方法会很有用，例如这样：
+
+```go
+type functionalSlice[T any] []T
+
+// THIS DOES NOT WORK
+func (fs functionalSlice[T]) Map[E any](f func(T) E) functionalSlice[E] {
+    out := make(functionalSlice[E], len(fs))
+    for i, v := range fs {
+        out[i] = f(v)
+    }
+    return out
+}
+
+// THIS DOES NOT WORK
+func (fs functionalSlice[T]) Reduce[E any](start E, f func(E, T) E) E {
+    out := start
+    for _, v := range fs {
+        out = f(out, v)
+    }
+    return out
+}
+```
+
+你可以像这样使用：
+
+```go
+var numStrings = functionalSlice[string]{"1", "2", "3"}
+sum := numStrings.Map(func(s string) int {
+    v, _ := strconv.Atoi(s)
+    return v
+}).Reduce(0, func(acc int, cur int) int {
+    return acc + cur
+})
+```
+
+不幸的是，对于函数式编程爱好者来说，这种方式并不生效。你不能进行方法的链式调用，而是需要嵌套函数调用，或者使用更易读的方式，一次调用一个函数，并将中间值赋值给变量。类型参数提案详细解释了未包含参数化方法（parameterized method）的原因。
+
+Go 也没有可变类型参数。在第 95 页的“可变参数和切片”中讨论过，要实现一个接受可变数量参数的函数，你需要指定最后一个参数的类型以 ... 开头。例如，无法为这些可变参数指定某种类型模式，比如交替的字符串和整数。所有可变参数的变量都必须匹配单个已声明的类型，无论该类型是否为泛型。
+
+Go 泛型中未包含的其他特性则更加晦涩难懂，包括以下几点：
+
+-   特化（Specialization）
+
+    除了泛型版本之外，一个函数或方法可以有一个或多个针对特定类型的重载版本。由于 Go 不支持重载，此特性不在考虑范围内。
+
+-   柯里化（Currying）
+
+    允许你基于另一个泛型函数或类型，通过指定部分类型参数来部分实例化函数或类型。
+
+-   元编程（Metaprogramming）
+
+    允许你指定在编译时运行的代码，以生成在运行时执行的代码。
