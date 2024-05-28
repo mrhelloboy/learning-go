@@ -668,3 +668,79 @@ fmt.Println(t3.Contains(Person{"Fred", 25}))
 ```
 
 你可以在 [Go Playground](https://go.dev/play/p/g0ECtbJBEBr) 或者[第 8 章代码仓库](https://github.com/learning-go-book-2e/ch08)的 _sample_code/generic_tree_ 目录中找到这个树的代码。
+
+## 可比较类型续讲
+
+正如你在第 165 页的“接口是可比较的”中所看到的，接口是 Go 中的可比较类型之一。这意味着在使用接口类型的变量时，需要谨慎使用 == 和 != 。如果接口的底层类型不可比较，你的代码在运行时会触发 panic 。
+
+在泛型中使用可比较接口时，这个陷阱依旧存在。假设你定义了一个接口及几个实现：
+
+```go
+type Thinger interface {
+    Thing()
+}
+
+type ThingerInt int
+
+func (t ThingerInt) Thing() {
+    fmt.Println("ThingInt:", t)
+}
+
+type ThingerSlice []int
+
+func (t ThingerSlice) Thing() {
+    fmt.Println("ThingSlice:", t)
+}
+```
+
+你还定义了一个泛型函数，该函数只接受可比较类型的值：
+
+```go
+func Comparer[T comparable](t1, t2 T) {
+    if t1 == t2 {
+        fmt.Println("equal!")
+    }
+}
+```
+
+调用此函数时，使用 int 或 ThingerInt 类型的变量是合法的：
+
+```go
+var a int = 10
+var b int = 10
+Comparer(a, b) // prints true
+
+var a2 ThingerInt = 20
+var b2 ThingerInt = 20
+Comparer(a2, b2) // prints true
+```
+
+但编译器不允许你使用 ThingerSlice（或[]int）类型的变量来调用此函数：
+
+```go
+var a3 ThingerSlice = []int{1, 2, 3}
+var b3 ThingerSlice = []int{1, 2, 3}
+Comparer(a3, b3) // compile fails: "ThingerSlice does not satisfy comparable"
+```
+
+然而，用 Thinger 类型的变量来调用是完全合法的。如果使用 ThingerInt，代码可以正常编译并按预期运行：
+
+```go
+var a4 Thinger = a2
+var b4 Thinger = b2
+Comparer(a4, b4) // prints true
+```
+
+你也可以将 ThingerSlice 赋值给 Thinger 类型的变量，但这时问题就出现了：
+
+```go
+a4 = a3
+b4 = b3
+Comparer(a4, b4) // compiles, panics at runtime
+```
+
+编译器不会阻止你构建这段代码，但如果运行它，程序将 panic 并输出错误信息 "panic: runtime error: comparing uncomparable type main.ThingerSlice (更多相关信息，请参考第 218 页的“panic 和 recover”)。"
+
+你可以在 [Go Playground](https://go.dev/play/p/eEWZ2IuF47i) 或 [第八章代码仓库](https://github.com/learning-go-book-2e/ch08)中的 _sample_code/more_comparable_ 目录下尝试这些代码。
+
+若想了解更多关于可比较类型与泛型如何交互的技术细节，以及为何做出这样的设计决策，请阅读 Go 团队的 Robert Griesemer 的博客文章 [“All Your Comparable Types”](https://go.dev/blog/comparable)。
